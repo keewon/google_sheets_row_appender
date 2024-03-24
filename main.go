@@ -2,6 +2,7 @@ package main
 
 import (
   "fmt"
+  "flag"
   "log"
   "os"
   "encoding/csv"
@@ -9,32 +10,58 @@ import (
   "golang.org/x/net/context"
   "google.golang.org/api/sheets/v4"
   "google.golang.org/api/option"
+
+  // "github.com/fsnotify/fsnotify"
 )
 
 func main() {
-  if len(os.Args) != 5 {
-    fmt.Println("Usage: go run main.go <credential.json> <csv_file_path> <spreadsheet_id> <sheet_name>")
+  // var watchFlag bool
+  var startRowIndex1 int
+  var endRowIndex1 int
+  var credentialsFile string
+  // var csvFilePath string
+  // var sheetName string
+
+  // flag.StringVar(&watchFlag, "watchDir", false, "Watch the csv file for changes")
+  flag.IntVar(&startRowIndex1, "start", 1, "Start row to append data")
+  flag.IntVar(&endRowIndex1, "end", -1, "End row to append data")
+  flag.StringVar(&credentialsFile, "credentialsFile", "service_account.json", "Google Sheets credentials file")
+  // flag.StringVar(&csvFilePath, "csv_file", "", "Path to the csv file")
+  // flag.StringVar(&sheetName, "sheet_name", "", "Name of the sheet")
+
+  flag.Parse()
+
+
+  if len(flag.Args()) < 3 {
+    fmt.Println("Usage: main.exe [OPTIONS] <csv_file> <spreadsheet_id> <sheet_name>")
+    fmt.Println("Options:")
+    flag.PrintDefaults()
     return
   }
+  csvFilePath := flag.Arg(0)
+  spreadsheetId := flag.Arg(1)
+  sheetName := flag.Arg(2)
 
-  credentialsFile := os.Args[1]
-  csvFilePath := os.Args[2]
-  spreadsheetId := os.Args[3]
-  sheetName := os.Args[4]
+  if csvFilePath != "" || sheetName != "" {
+    csvData := ReadCsvFile(csvFilePath)
+    srv, err := sheets.NewService(context.Background(),
+      option.WithCredentialsFile(credentialsFile),
+      option.WithScopes(sheets.SpreadsheetsScope))
 
-  csvData := ReadCsvFile(csvFilePath)
+    if err != nil {
+      log.Fatalf("Unable to open service with give credentialsFile: %v", err)
+    }
 
-  srv, err := sheets.NewService(context.Background(),
-    option.WithCredentialsFile(credentialsFile),
-    option.WithScopes(sheets.SpreadsheetsScope))
+    startRow := startRowIndex1 - 1
+    endRow := endRowIndex1 - 1
+    if endRowIndex1 == -1 {
+      endRow = len(csvData) - 1
+    }
 
-  if err != nil {
-    log.Fatalf("Unable to open service with give credentialsFile: %v", err)
-  }
+    AppendCsvDataToGoogleSheets(srv, spreadsheetId, sheetName, csvData, startRow, endRow)
 
-  AppendCsvDataToGoogleSheets(srv, spreadsheetId, sheetName, csvData)
-
-  fmt.Printf("Done!")
+    fmt.Printf("Appended!\n")
+  }  
 }
 
 func ReadCsvFile(csvFilePath string) [][]string {
@@ -53,12 +80,12 @@ func ReadCsvFile(csvFilePath string) [][]string {
   return data
 }
 
-func AppendCsvDataToGoogleSheets(srv *sheets.Service, spreadsheetId string, sheetName string, csvData [][]string) {
+func AppendCsvDataToGoogleSheets(srv *sheets.Service, spreadsheetId string, sheetName string, csvData [][]string, startRow int, endRow int) {
   var interfaceRecord [][]interface{}
 
   for i, line := range csvData {
-    if i > 0 {// Omit header line
-      fmt.Printf("%+v\n", line)
+    if startRow <= i && i <= endRow {
+      fmt.Printf("%v: %+v\n", i + 1, line)
 
       var interfaceLine []interface{}
 

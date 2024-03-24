@@ -25,7 +25,16 @@ $ GOOS=windows GOARCH=amd64 go build -o bin/app-amd64.exe
 
 # Usage
 ```
-app-amd64.exe service_account.json test.csv SheetID SheetName
+Usage: main.exe [OPTIONS] <csv_file> <spreadsheet_id> <sheet_name>
+Options:
+  -credentialsFile string
+        Google Sheets credentials file (default "service_account.json")
+  -end int
+        End row to append data (default -1)
+  -start int
+        Start row to append data (default 1)
+
+app-amd64.exe --credentialsFile service_account.json test.csv SheetID SheetName
 ```
  - service_account.json : Download JSON file for the Service Account from Google Cloud
  - test.csv : The CSV file you want to upload
